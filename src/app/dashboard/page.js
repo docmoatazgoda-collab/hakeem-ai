@@ -116,8 +116,15 @@ export default function Dashboard() {
         })
       });
 
+      let apiErrorMsg = 'فشل الاتصال بمولد الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.';
       if (!response.ok) {
-        throw new Error('فشل الاتصال بمولد الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.');
+        try {
+          const errData = await response.json();
+          if (errData.error) {
+            apiErrorMsg = errData.error;
+          }
+        } catch (e) {}
+        throw new Error(apiErrorMsg);
       }
 
       const data = await response.json();

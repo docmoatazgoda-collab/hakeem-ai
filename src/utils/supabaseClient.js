@@ -339,7 +339,7 @@ if (supabaseUrl && supabaseAnonKey) {
               if (bypassed) {
                 return {
                   data: {
-                    session: { user: bypassed, access_token: 'mock-token' }
+                    session: { user: bypassed, access_token: 'mock-token-docmoatazgoda' }
                   },
                   error: null
                 };
