@@ -324,65 +324,79 @@ if (supabaseUrl && supabaseAnonKey) {
         if (prop === 'isSimulated') return false;
         
         if (prop === 'auth') {
-          const originalAuth = target.auth;
-          return {
-            ...originalAuth,
-            getUser: async (token) => {
-              const bypassed = getBypassedUser();
-              if (bypassed) {
-                return { data: { user: bypassed }, error: null };
-              }
-              return originalAuth.getUser(token);
-            },
-            getSession: async () => {
-              const bypassed = getBypassedUser();
-              if (bypassed) {
-                return {
-                  data: {
-                    session: { user: bypassed, access_token: 'mock-token-docmoatazgoda' }
-                  },
-                  error: null
-                };
-              }
-              return originalAuth.getSession();
-            },
-            signInWithPassword: async ({ email, password }) => {
-              if (email && email.toLowerCase() === bypassEmail) {
-                const mockUser = {
-                  id: bypassUserId,
-                  email: bypassEmail,
-                  user_metadata: { doctor_name: 'د. معتز جودة', specialty: 'أخصائي الطب والذكاء الاصطناعي' },
-                  created_at: new Date().toISOString()
-                };
-                if (isBrowser) {
-                  localStorage.setItem('hakeem_bypass_user', JSON.stringify(mockUser));
-                  // Create profile locally if not exists
-                  const profiles = getLocalData('hakeem_profiles', {});
-                  if (!profiles[bypassUserId]) {
-                    profiles[bypassUserId] = {
-                      id: bypassUserId,
-                      doctor_name: 'د. معتز جودة',
-                      specialty: 'أخصائي الطب والذكاء الاصطناعي',
-                      clinic_address: 'القاهرة، مصر',
-                      phone_number: '01000000000',
-                      booking_link: '',
-                      disclaimer_template: 'هذا المنشور لغرض التثقيف الطبي فقط ولا يغني عن استشارة الطبيب المختص.',
-                      updated_at: new Date().toISOString()
-                    };
-                    setLocalData('hakeem_profiles', profiles);
+          return new Proxy(target.auth, {
+            get(authTarget, authProp) {
+              if (authProp === 'getUser') {
+                return async (token) => {
+                  const bypassed = getBypassedUser();
+                  if (bypassed) {
+                    return { data: { user: bypassed }, error: null };
                   }
-                }
-                return { data: { user: mockUser }, error: null };
+                  return authTarget.getUser(token);
+                };
               }
-              return originalAuth.signInWithPassword({ email, password });
-            },
-            signOut: async () => {
-              if (isBrowser) {
-                localStorage.removeItem('hakeem_bypass_user');
+              if (authProp === 'getSession') {
+                return async () => {
+                  const bypassed = getBypassedUser();
+                  if (bypassed) {
+                    return {
+                      data: {
+                        session: { user: bypassed, access_token: 'mock-token-docmoatazgoda' }
+                      },
+                      error: null
+                    };
+                  }
+                  return authTarget.getSession();
+                };
               }
-              return originalAuth.signOut();
+              if (authProp === 'signInWithPassword') {
+                return async ({ email, password }) => {
+                  if (email && email.toLowerCase() === bypassEmail) {
+                    const mockUser = {
+                      id: bypassUserId,
+                      email: bypassEmail,
+                      user_metadata: { doctor_name: 'د. معتز جودة', specialty: 'أخصائي الطب والذكاء الاصطناعي' },
+                      created_at: new Date().toISOString()
+                    };
+                    if (isBrowser) {
+                      localStorage.setItem('hakeem_bypass_user', JSON.stringify(mockUser));
+                      // Create profile locally if not exists
+                      const profiles = getLocalData('hakeem_profiles', {});
+                      if (!profiles[bypassUserId]) {
+                        profiles[bypassUserId] = {
+                          id: bypassUserId,
+                          doctor_name: 'د. معتز جودة',
+                          specialty: 'أخصائي الطب والذكاء الاصطناعي',
+                          clinic_address: 'القاهرة، مصر',
+                          phone_number: '01000000000',
+                          booking_link: '',
+                          disclaimer_template: 'هذا المنشور لغرض التثقيف الطبي فقط ولا يغني عن استشارة الطبيب المختص.',
+                          updated_at: new Date().toISOString()
+                        };
+                        setLocalData('hakeem_profiles', profiles);
+                      }
+                    }
+                    return { data: { user: mockUser }, error: null };
+                  }
+                  return authTarget.signInWithPassword({ email, password });
+                };
+              }
+              if (authProp === 'signOut') {
+                return async () => {
+                  if (isBrowser) {
+                    localStorage.removeItem('hakeem_bypass_user');
+                  }
+                  return authTarget.signOut();
+                };
+              }
+              
+              const value = authTarget[authProp];
+              if (typeof value === 'function') {
+                return value.bind(authTarget);
+              }
+              return value;
             }
-          };
+          });
         }
         
         if (prop === 'from') {
