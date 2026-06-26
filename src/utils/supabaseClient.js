@@ -160,39 +160,59 @@ const simulatedClient = {
   from: (table) => {
     return {
       select: (query = '*') => {
-        return {
-          eq: (field, val) => {
-            return {
-              single: async () => {
-                await new Promise(r => setTimeout(r, 200));
-                if (table === 'profiles') {
-                  const profiles = getLocalData('hakeem_profiles', {});
-                  const profile = profiles[val] || null;
-                  return { data: profile, error: null };
-                }
-                return { data: null, error: null };
-              },
-              order: (orderField, { ascending } = {}) => {
-                return {
-                  then: async (resolve) => {
-                    await new Promise(r => setTimeout(r, 200));
-                    if (table === 'drafts') {
-                      const allDrafts = getLocalData('hakeem_drafts', []);
-                      const userDrafts = allDrafts.filter(d => d[field] === val);
-                      userDrafts.sort((a, b) => {
-                        const dateA = new Date(a[orderField]);
-                        const dateB = new Date(b[orderField]);
-                        return ascending ? dateA - dateB : dateB - dateA;
-                      });
-                      resolve({ data: userDrafts, error: null });
-                    } else {
-                      resolve({ data: [], error: null });
-                    }
-                  }
-                };
+        const orderFn = (orderField, { ascending } = {}) => {
+          return {
+            then: async (resolve) => {
+              await new Promise(r => setTimeout(r, 200));
+              if (table === 'drafts') {
+                const allDrafts = getLocalData('hakeem_drafts', []);
+                allDrafts.sort((a, b) => {
+                  const dateA = new Date(a[orderField]);
+                  const dateB = new Date(b[orderField]);
+                  return ascending ? dateA - dateB : dateB - dateA;
+                });
+                resolve({ data: allDrafts, error: null });
+              } else {
+                resolve({ data: [], error: null });
               }
-            };
-          },
+            }
+          };
+        };
+        const eqFn = (field, val) => {
+          return {
+            single: async () => {
+              await new Promise(r => setTimeout(r, 200));
+              if (table === 'profiles') {
+                const profiles = getLocalData('hakeem_profiles', {});
+                const profile = profiles[val] || null;
+                return { data: profile, error: null };
+              }
+              return { data: null, error: null };
+            },
+            order: (orderField, { ascending } = {}) => {
+              return {
+                then: async (resolve) => {
+                  await new Promise(r => setTimeout(r, 200));
+                  if (table === 'drafts') {
+                    const allDrafts = getLocalData('hakeem_drafts', []);
+                    const userDrafts = allDrafts.filter(d => d[field] === val);
+                    userDrafts.sort((a, b) => {
+                      const dateA = new Date(a[orderField]);
+                      const dateB = new Date(b[orderField]);
+                      return ascending ? dateA - dateB : dateB - dateA;
+                    });
+                    resolve({ data: userDrafts, error: null });
+                  } else {
+                    resolve({ data: [], error: null });
+                  }
+                }
+              };
+            }
+          };
+        };
+        return {
+          order: orderFn,
+          eq: eqFn,
           then: async (resolve) => {
             await new Promise(r => setTimeout(r, 200));
             if (table === 'drafts') {
@@ -349,24 +369,63 @@ if (supabaseUrl && supabaseAnonKey) {
                   return authTarget.getSession();
                 };
               }
-              if (authProp === 'signInWithPassword') {
-                return async ({ email, password }) => {
-                  if (email && email.toLowerCase() === bypassEmail) {
+              if (authProp === 'signUp') {
+                return async ({ email, password, options }) => {
+                  if (email) {
+                    const emailLower = email.toLowerCase();
+                    const isBypass = emailLower === bypassEmail;
+                    const userId = isBypass ? bypassUserId : 'mock-user-' + btoa(emailLower).replace(/=/g, '').substring(0, 16);
+
                     const mockUser = {
-                      id: bypassUserId,
-                      email: bypassEmail,
-                      user_metadata: { doctor_name: 'د. معتز جودة', specialty: 'أخصائي الطب والذكاء الاصطناعي' },
+                      id: userId,
+                      email: emailLower,
+                      user_metadata: options?.data || (isBypass ? { doctor_name: 'د. معتز جودة', specialty: 'أخصائي الطب والذكاء الاصطناعي' } : {}),
                       created_at: new Date().toISOString()
                     };
                     if (isBrowser) {
-                      localStorage.setItem('hakeem_bypass_user', JSON.stringify(mockUser));
-                      // Create profile locally if not exists
+                      localStorage.setItem(isBypass ? 'hakeem_bypass_user' : 'hakeem_user', JSON.stringify(mockUser));
                       const profiles = getLocalData('hakeem_profiles', {});
-                      if (!profiles[bypassUserId]) {
-                        profiles[bypassUserId] = {
-                          id: bypassUserId,
-                          doctor_name: 'د. معتز جودة',
-                          specialty: 'أخصائي الطب والذكاء الاصطناعي',
+                      if (!profiles[userId]) {
+                        profiles[userId] = {
+                          id: userId,
+                          doctor_name: mockUser.user_metadata.doctor_name || 'د. محمد علي',
+                          specialty: mockUser.user_metadata.specialty || 'طب عام',
+                          clinic_address: 'القاهرة، مصر',
+                          phone_number: '01000000000',
+                          booking_link: '',
+                          disclaimer_template: 'هذا المنشور لغرض التثقيف الطبي فقط ولا يغني عن استشارة الطبيب المختص.',
+                          updated_at: new Date().toISOString()
+                        };
+                        setLocalData('hakeem_profiles', profiles);
+                      }
+                    }
+                    return { data: { user: mockUser }, error: null };
+                  }
+                  return authTarget.signUp({ email, password, options });
+                };
+              }
+              if (authProp === 'signInWithPassword') {
+                return async ({ email, password }) => {
+                  if (email) {
+                    const emailLower = email.toLowerCase();
+                    const isBypass = emailLower === bypassEmail;
+                    const userId = isBypass ? bypassUserId : 'mock-user-' + btoa(emailLower).replace(/=/g, '').substring(0, 16);
+
+                    const mockUser = {
+                      id: userId,
+                      email: emailLower,
+                      user_metadata: isBypass ? { doctor_name: 'د. معتز جودة', specialty: 'أخصائي الطب والذكاء الاصطناعي' } : { doctor_name: 'د. أحمد سليمان', specialty: 'أخصائي الباطنة' },
+                      created_at: new Date().toISOString()
+                    };
+
+                    if (isBrowser) {
+                      localStorage.setItem(isBypass ? 'hakeem_bypass_user' : 'hakeem_user', JSON.stringify(mockUser));
+                      const profiles = getLocalData('hakeem_profiles', {});
+                      if (!profiles[userId]) {
+                        profiles[userId] = {
+                          id: userId,
+                          doctor_name: mockUser.user_metadata.doctor_name,
+                          specialty: mockUser.user_metadata.specialty,
                           clinic_address: 'القاهرة، مصر',
                           phone_number: '01000000000',
                           booking_link: '',
