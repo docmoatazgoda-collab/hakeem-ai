@@ -160,39 +160,59 @@ const simulatedClient = {
   from: (table) => {
     return {
       select: (query = '*') => {
-        return {
-          eq: (field, val) => {
-            return {
-              single: async () => {
-                await new Promise(r => setTimeout(r, 200));
-                if (table === 'profiles') {
-                  const profiles = getLocalData('hakeem_profiles', {});
-                  const profile = profiles[val] || null;
-                  return { data: profile, error: null };
-                }
-                return { data: null, error: null };
-              },
-              order: (orderField, { ascending } = {}) => {
-                return {
-                  then: async (resolve) => {
-                    await new Promise(r => setTimeout(r, 200));
-                    if (table === 'drafts') {
-                      const allDrafts = getLocalData('hakeem_drafts', []);
-                      const userDrafts = allDrafts.filter(d => d[field] === val);
-                      userDrafts.sort((a, b) => {
-                        const dateA = new Date(a[orderField]);
-                        const dateB = new Date(b[orderField]);
-                        return ascending ? dateA - dateB : dateB - dateA;
-                      });
-                      resolve({ data: userDrafts, error: null });
-                    } else {
-                      resolve({ data: [], error: null });
-                    }
-                  }
-                };
+        const orderFn = (orderField, { ascending } = {}) => {
+          return {
+            then: async (resolve) => {
+              await new Promise(r => setTimeout(r, 200));
+              if (table === 'drafts') {
+                const allDrafts = getLocalData('hakeem_drafts', []);
+                allDrafts.sort((a, b) => {
+                  const dateA = new Date(a[orderField]);
+                  const dateB = new Date(b[orderField]);
+                  return ascending ? dateA - dateB : dateB - dateA;
+                });
+                resolve({ data: allDrafts, error: null });
+              } else {
+                resolve({ data: [], error: null });
               }
-            };
-          },
+            }
+          };
+        };
+        const eqFn = (field, val) => {
+          return {
+            single: async () => {
+              await new Promise(r => setTimeout(r, 200));
+              if (table === 'profiles') {
+                const profiles = getLocalData('hakeem_profiles', {});
+                const profile = profiles[val] || null;
+                return { data: profile, error: null };
+              }
+              return { data: null, error: null };
+            },
+            order: (orderField, { ascending } = {}) => {
+              return {
+                then: async (resolve) => {
+                  await new Promise(r => setTimeout(r, 200));
+                  if (table === 'drafts') {
+                    const allDrafts = getLocalData('hakeem_drafts', []);
+                    const userDrafts = allDrafts.filter(d => d[field] === val);
+                    userDrafts.sort((a, b) => {
+                      const dateA = new Date(a[orderField]);
+                      const dateB = new Date(b[orderField]);
+                      return ascending ? dateA - dateB : dateB - dateA;
+                    });
+                    resolve({ data: userDrafts, error: null });
+                  } else {
+                    resolve({ data: [], error: null });
+                  }
+                }
+              };
+            }
+          };
+        };
+        return {
+          order: orderFn,
+          eq: eqFn,
           then: async (resolve) => {
             await new Promise(r => setTimeout(r, 200));
             if (table === 'drafts') {
