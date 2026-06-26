@@ -12,8 +12,10 @@ import {
   ChevronDown, 
   ChevronUp, 
   Check, 
-  MessageCircle 
+  MessageCircle,
+  BookOpen
 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DraftsPage() {
   const router = useRouter();
@@ -56,23 +58,22 @@ export default function DraftsPage() {
       }
 
       // Load Saved Drafts
+      const loadDrafts = async (userId) => {
+        const { data: list, error } = await supabase
+          .from('drafts')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (list) {
+          setDrafts(list);
+        }
+      };
       await loadDrafts(user.id);
       setLoading(false);
     }
     init();
   }, [router]);
-
-  const loadDrafts = async (userId) => {
-    const { data: list, error } = await supabase
-      .from('drafts')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (list) {
-      setDrafts(list);
-    }
-  };
 
   const confirmDelete = async (id) => {
     try {

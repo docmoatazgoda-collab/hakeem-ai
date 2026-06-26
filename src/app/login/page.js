@@ -10,7 +10,10 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [isSignUp, setIsSignUp] = useState(false);
+  const initialIsSignUp = searchParams.get('signup') === 'true';
+  const initialIsSimulated = supabase.isSimulated || false;
+
+  const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [doctorName, setDoctorName] = useState('');
@@ -19,19 +22,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
-  const [isSimulated, setIsSimulated] = useState(false);
-
-  useEffect(() => {
-    // Check if URL has signup parameter
-    if (searchParams.get('signup') === 'true') {
-      setIsSignUp(true);
-    }
-    
-    // Check if running in simulated mode
-    if (supabase.isSimulated) {
-      setIsSimulated(true);
-    }
-  }, [searchParams]);
+  const [isSimulated, setIsSimulated] = useState(initialIsSimulated);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
